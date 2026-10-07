@@ -407,3 +407,10 @@ void vdesktop_surface_destroy(void *handle) {
     free(state->payload);
     free(state);
 }
+
+
+uint64_t vdesktop_surface_native_handle(void *handle) {
+    VdsWindow *state = (VdsWindow *)handle;
+    if (!state || !state->hwnd) return 0;
+    return (uint64_t)(uintptr_t)state->hwnd;
+}
