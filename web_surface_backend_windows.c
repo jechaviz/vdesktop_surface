@@ -8,8 +8,10 @@ typedef void *(__cdecl *vds_create_fn)(uint64_t, int, int, int, int, const char 
 typedef int (__cdecl *vds_navigate_fn)(void *, const char *);
 typedef int (__cdecl *vds_bounds_fn)(void *, int, int, int, int);
 typedef int (__cdecl *vds_visible_fn)(void *, int);
+typedef int (__cdecl *vds_eval_action_fn)(void *, const char *, const char *);
 typedef void (__cdecl *vds_destroy_fn)(void *);
-typedef int (__cdecl *vds_probe_fn)(void *, uint64_t *, char *, int, char *, int, char *, int);
+typedef int (__cdecl *vds_probe_fn)(void *, uint64_t *, char *, int, char *, int, char *, int,
+    uint64_t *, char *, int, int *, char *, int);
 typedef const char *(__cdecl *vds_error_fn)(void *);
 
 static HMODULE g_vds_web_module = NULL;
@@ -17,6 +19,7 @@ static vds_create_fn g_vds_create = NULL;
 static vds_navigate_fn g_vds_navigate = NULL;
 static vds_bounds_fn g_vds_bounds = NULL;
 static vds_visible_fn g_vds_visible = NULL;
+static vds_eval_action_fn g_vds_eval_action = NULL;
 static vds_destroy_fn g_vds_destroy = NULL;
 static vds_probe_fn g_vds_probe = NULL;
 static vds_error_fn g_vds_error = NULL;
