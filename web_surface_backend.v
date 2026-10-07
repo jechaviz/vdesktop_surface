@@ -9,7 +9,18 @@ $if windows {
 	fn C.vdesktop_surface_web_navigate(handle voidptr, url &u8) int
 	fn C.vdesktop_surface_web_set_bounds(handle voidptr, x int, y int, w int, h int) int
 	fn C.vdesktop_surface_web_set_visible(handle voidptr, visible int) int
+	fn C.vdesktop_surface_web_probe(handle voidptr, load_count &u64, url &u8, url_cap int,
+		title &u8, title_cap int, text &u8, text_cap int) int
 	fn C.vdesktop_surface_web_destroy(handle voidptr)
+}
+
+pub struct WebSurfaceProbe {
+pub:
+	ready        bool
+	load_count   u64
+	url          string
+	title        string
+	visible_text string
 }
 
 pub struct WebSurfaceHost {
@@ -130,6 +141,40 @@ fn (host WebSurfaceHost) require_attached(id string) ! {
 	if host.state.id != id {
 		return error('embedded web surface id mismatch')
 	}
+}
+
+pub fn (host WebSurfaceHost) probe() WebSurfaceProbe {
+	if !host.state.attached || isnil(host.handle) {
+		return WebSurfaceProbe{}
+	}
+	$if windows {
+		mut load_count := u64(0)
+		mut url := []u8{len: 4096}
+		mut title := []u8{len: 1024}
+		mut body := []u8{len: 12001}
+		ready := C.vdesktop_surface_web_probe(host.handle, &load_count, &url[0], url.len,
+			&title[0], title.len, &body[0], body.len) != 0
+		return WebSurfaceProbe{
+			ready: ready
+			load_count: load_count
+			url: nul_terminated_text(url)
+			title: nul_terminated_text(title)
+			visible_text: nul_terminated_text(body)
+		}
+	} $else {
+		return WebSurfaceProbe{}
+	}
+}
+
+fn nul_terminated_text(buffer []u8) string {
+	mut end := 0
+	for end < buffer.len && buffer[end] != 0 {
+		end++
+	}
+	if end == 0 {
+		return ''
+	}
+	return buffer[..end].bytestr()
 }
 
 pub fn (mut host WebSurfaceHost) close() {
