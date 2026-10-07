@@ -40,10 +40,13 @@ static int vds_load_from(const char *path) {
     vds_navigate_fn navigate_fn = (vds_navigate_fn)GetProcAddress(module, "vds_webview2_navigate");
     vds_bounds_fn bounds_fn = (vds_bounds_fn)GetProcAddress(module, "vds_webview2_set_bounds");
     vds_visible_fn visible_fn = (vds_visible_fn)GetProcAddress(module, "vds_webview2_set_visible");
+    vds_eval_action_fn eval_action_fn =
+        (vds_eval_action_fn)GetProcAddress(module, "vds_webview2_eval_action");
     vds_destroy_fn destroy_fn = (vds_destroy_fn)GetProcAddress(module, "vds_webview2_destroy");
     vds_probe_fn probe_fn = (vds_probe_fn)GetProcAddress(module, "vds_webview2_probe");
     vds_error_fn error_fn = (vds_error_fn)GetProcAddress(module, "vds_webview2_last_error");
-    if (!create_fn || !navigate_fn || !bounds_fn || !visible_fn || !destroy_fn || !probe_fn || !error_fn) {
+    if (!create_fn || !navigate_fn || !bounds_fn || !visible_fn || !eval_action_fn
+        || !destroy_fn || !probe_fn || !error_fn) {
         FreeLibrary(module);
         return 0;
     }
@@ -53,6 +56,7 @@ static int vds_load_from(const char *path) {
     g_vds_navigate = navigate_fn;
     g_vds_bounds = bounds_fn;
     g_vds_visible = visible_fn;
+    g_vds_eval_action = eval_action_fn;
     g_vds_destroy = destroy_fn;
     g_vds_probe = probe_fn;
     g_vds_error = error_fn;
