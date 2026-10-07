@@ -9,6 +9,7 @@ pub enum DisplayCommandKind {
 	line
 	text
 	icon
+	image
 	clip
 }
 
@@ -20,6 +21,7 @@ pub:
 	y2 int
 	text string
 	icon string
+	source string
 	value u32
 	stroke_width int = 1
 	radius int
@@ -38,7 +40,7 @@ pub fn (list DisplayList) valid() bool {
 		return false
 	}
 	for command in list.commands {
-		if command.kind in [.rect, .round_rect, .stroke_rect, .text, .icon, .clip]
+		if command.kind in [.rect, .round_rect, .stroke_rect, .text, .icon, .image, .clip]
 			&& !command.rect.valid() {
 			return false
 		}
