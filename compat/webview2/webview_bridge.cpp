@@ -15,6 +15,7 @@ struct VdsWebView2Surface {
     std::string url;
     std::string title;
     std::string visible_text;
+    std::string controls_text;
     uint64_t load_count = 0;
     uint64_t action_count = 0;
     std::string action_id;
@@ -86,6 +87,7 @@ static void vds_state_callback(const char *seq, const char *request, void *arg) 
         state->url = values[0];
         state->title = values[1];
         state->visible_text = values[2];
+        state->controls_text = values.size() >= 4 ? values[3] : "";
         state->load_count++;
         state->last_error.clear();
     }
@@ -158,11 +160,24 @@ void *vds_webview2_create(uint64_t parent_handle, int x, int y, int width, int h
     }
     const char *probe_js =
         "(function(){"
+        "function clean(v){return String(v||'').replace(/[\\t\\r\\n]+/g,' ').trim();}"
         "function send(){"
         "var t=(document.body&&document.body.innerText)||'';"
         "if(t.length>12000)t=t.slice(0,12000);"
+        "var q='a[href],button,input:not([type=hidden]),textarea,select,[role=button],[role=link],[contenteditable=true]';"
+        "var nodes=[...document.querySelectorAll(q)].filter(function(e){var r=e.getBoundingClientRect();return r.width>0&&r.height>0;}).slice(0,128);"
+        "var controls=nodes.map(function(e,i){"
+        "var id=e.id||('web-'+i);"
+        "var role=e.getAttribute('role')||e.tagName.toLowerCase();"
+        "var label=e.getAttribute('aria-label')||e.getAttribute('title')||e.getAttribute('placeholder')||e.innerText||e.value||'';"
+        "var name=e.getAttribute('name')||'';"
+        "var value=(e.type==='password')?'':(e.value||'');"
+        "var href=e.href||'';"
+        "var disabled=(e.disabled||e.getAttribute('aria-disabled')==='true')?'1':'0';"
+        "return [id,role,label,name,value,href,disabled].map(clean).join('\\t');"
+        "}).join('\\n');"
         "window.__vds_state(encodeURIComponent(location.href),"
-        "encodeURIComponent(document.title||''),encodeURIComponent(t));"
+        "encodeURIComponent(document.title||''),encodeURIComponent(t),encodeURIComponent(controls));"
         "}"
         "window.__vds_probe_state=send;"
         "if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',send,{once:true});}"
@@ -254,9 +269,9 @@ int vds_webview2_set_visible(void *handle, int visible) {
 
 extern "C" __declspec(dllexport)
 int vds_webview2_probe(void *handle, uint64_t *load_count, char *url, int url_cap,
-    char *title, int title_cap, char *text, int text_cap, uint64_t *action_count,
-    char *action_id, int action_id_cap, int *action_ok, char *action_message,
-    int action_message_cap) {
+    char *title, int title_cap, char *text, int text_cap, char *controls, int controls_cap,
+    uint64_t *action_count, char *action_id, int action_id_cap, int *action_ok,
+    char *action_message, int action_message_cap) {
     auto *state = static_cast<VdsWebView2Surface *>(handle);
     if (!state || !state->view) return 0;
     if (load_count) *load_count = state->load_count;
@@ -265,6 +280,7 @@ int vds_webview2_probe(void *handle, uint64_t *load_count, char *url, int url_ca
     vds_copy_text(state->url, url, url_cap);
     vds_copy_text(state->title, title, title_cap);
     vds_copy_text(state->visible_text, text, text_cap);
+    vds_copy_text(state->controls_text, controls, controls_cap);
     vds_copy_text(state->action_id, action_id, action_id_cap);
     vds_copy_text(state->action_message, action_message, action_message_cap);
     return state->load_count > 0 || state->action_count > 0 ? 1 : 0;
