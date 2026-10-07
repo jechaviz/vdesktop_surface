@@ -153,6 +153,9 @@ void *vds_webview2_create(uint64_t parent_handle, int x, int y, int width, int h
     if (!vds_ok(webview_bind(state->view, "__vds_state", vds_state_callback, state))) {
         vds_set_error(state, "failed to bind browser state probe");
     }
+    if (!vds_ok(webview_bind(state->view, "__vds_action", vds_action_callback, state))) {
+        vds_set_error(state, "failed to bind browser action receipt");
+    }
     const char *probe_js =
         "(function(){"
         "function send(){"
@@ -161,6 +164,7 @@ void *vds_webview2_create(uint64_t parent_handle, int x, int y, int width, int h
         "window.__vds_state(encodeURIComponent(location.href),"
         "encodeURIComponent(document.title||''),encodeURIComponent(t));"
         "}"
+        "window.__vds_probe_state=send;"
         "if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',send,{once:true});}"
         "else{setTimeout(send,0);}"
         "window.addEventListener('load',send,{once:true});"
