@@ -16,6 +16,10 @@ struct VdsWebView2Surface {
     std::string title;
     std::string visible_text;
     uint64_t load_count = 0;
+    uint64_t action_count = 0;
+    std::string action_id;
+    bool action_ok = false;
+    std::string action_message;
 };
 
 static thread_local std::string g_vds_webview2_error;
@@ -84,6 +88,21 @@ static void vds_state_callback(const char *seq, const char *request, void *arg) 
         state->visible_text = values[2];
         state->load_count++;
         state->last_error.clear();
+    }
+    if (state->view && seq) {
+        webview_return(state->view, seq, 0, "null");
+    }
+}
+
+static void vds_action_callback(const char *seq, const char *request, void *arg) {
+    auto *state = static_cast<VdsWebView2Surface *>(arg);
+    if (!state) return;
+    auto values = vds_state_args(request);
+    if (values.size() >= 3) {
+        state->action_id = values[0];
+        state->action_ok = values[1] == "ok";
+        state->action_message = values[2];
+        state->action_count++;
     }
     if (state->view && seq) {
         webview_return(state->view, seq, 0, "null");
