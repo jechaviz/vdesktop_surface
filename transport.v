@@ -48,7 +48,3 @@ pub fn escape_transport(value string) string {
 fn hex_digit(value u8) u8 {
 	return if value < 10 { `0` + value } else { `A` + value - 10 }
 }
-
-fn max_int(a int, b int) int {
-	return if a > b { a } else { b }
-}
