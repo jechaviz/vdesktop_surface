@@ -197,6 +197,38 @@ int vds_webview2_navigate(void *handle, const char *url) {
     return 1;
 }
 
+static std::string vds_js_string(const char *value) {
+    std::string out;
+    for (const char *p = value ? value : ""; *p; ++p) {
+        switch (*p) {
+        case '\\': out += "\\\\"; break;
+        case '\'': out += "\\'"; break;
+        case '\n': out += "\\n"; break;
+        case '\r': out += "\\r"; break;
+        default: out.push_back(*p); break;
+        }
+    }
+    return out;
+}
+
+extern "C" __declspec(dllexport)
+int vds_webview2_eval_action(void *handle, const char *action_id, const char *script) {
+    auto *state = static_cast<VdsWebView2Surface *>(handle);
+    if (!state || !state->view || !action_id || !action_id[0] || !script) return 0;
+    const std::string id = vds_js_string(action_id);
+    std::string wrapped =
+        "(async function(){try{" + std::string(script) +
+        ";await window.__vds_action(encodeURIComponent('" + id +
+        "'),'ok','');}catch(e){await window.__vds_action(encodeURIComponent('" + id +
+        "'),'error',encodeURIComponent(String((e&&e.message)||e||'error')));}"
+        "finally{if(window.__vds_probe_state){setTimeout(window.__vds_probe_state,0);}}})();";
+    if (!vds_ok(webview_eval(state->view, wrapped.c_str()))) {
+        vds_set_error(state, "action script dispatch failed");
+        return 0;
+    }
+    return 1;
+}
+
 extern "C" __declspec(dllexport)
 int vds_webview2_set_bounds(void *handle, int x, int y, int width, int height) {
     auto *state = static_cast<VdsWebView2Surface *>(handle);
