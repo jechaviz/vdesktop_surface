@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <new>
 #include <string>
+#include <vector>
+#include <cstring>
 
 #include "webview/webview.h"
 
@@ -10,6 +12,10 @@ struct VdsWebView2Surface {
     HWND child = NULL;
     webview_t view = nullptr;
     std::string last_error;
+    std::string url;
+    std::string title;
+    std::string visible_text;
+    uint64_t load_count = 0;
 };
 
 static thread_local std::string g_vds_webview2_error;
@@ -22,6 +28,74 @@ static void vds_set_error(VdsWebView2Surface *state, const char *message) {
 
 static int vds_ok(webview_error_t result) {
     return result == WEBVIEW_ERROR_OK ? 1 : 0;
+}
+
+static int vds_hex(char ch) {
+    if (ch >= '0' && ch <= '9') return ch - '0';
+    if (ch >= 'a' && ch <= 'f') return 10 + ch - 'a';
+    if (ch >= 'A' && ch <= 'F') return 10 + ch - 'A';
+    return -1;
+}
+
+static std::string vds_percent_decode(const std::string &value) {
+    std::string out;
+    out.reserve(value.size());
+    for (size_t i = 0; i < value.size(); ++i) {
+        if (value[i] == '%' && i + 2 < value.size()) {
+            int hi = vds_hex(value[i + 1]);
+            int lo = vds_hex(value[i + 2]);
+            if (hi >= 0 && lo >= 0) {
+                out.push_back(static_cast<char>((hi << 4) | lo));
+                i += 2;
+                continue;
+            }
+        }
+        out.push_back(value[i]);
+    }
+    return out;
+}
+
+static std::vector<std::string> vds_state_args(const char *request) {
+    std::vector<std::string> out;
+    if (!request) return out;
+    std::string raw(request);
+    if (raw.size() < 4 || raw.front() != '[' || raw.back() != ']') return out;
+    size_t pos = 1;
+    while (pos < raw.size() - 1) {
+        if (raw[pos] != '"') return {};
+        size_t end = raw.find('"', pos + 1);
+        if (end == std::string::npos) return {};
+        out.push_back(vds_percent_decode(raw.substr(pos + 1, end - pos - 1)));
+        pos = end + 1;
+        if (pos >= raw.size() - 1) break;
+        if (raw[pos] != ',') return {};
+        ++pos;
+    }
+    return out;
+}
+
+static void vds_state_callback(const char *seq, const char *request, void *arg) {
+    auto *state = static_cast<VdsWebView2Surface *>(arg);
+    if (!state) return;
+    auto values = vds_state_args(request);
+    if (values.size() >= 3) {
+        state->url = values[0];
+        state->title = values[1];
+        state->visible_text = values[2];
+        state->load_count++;
+        state->last_error.clear();
+    }
+    if (state->view && seq) {
+        webview_return(state->view, seq, 0, "null");
+    }
+}
+
+static void vds_copy_text(const std::string &value, char *out, int cap) {
+    if (!out || cap <= 0) return;
+    size_t count = value.size();
+    if (count > static_cast<size_t>(cap - 1)) count = static_cast<size_t>(cap - 1);
+    if (count > 0) memcpy(out, value.data(), count);
+    out[count] = 0;
 }
 
 extern "C" __declspec(dllexport)
@@ -57,6 +131,24 @@ void *vds_webview2_create(uint64_t parent_handle, int x, int y, int width, int h
         return nullptr;
     }
 
+    if (!vds_ok(webview_bind(state->view, "__vds_state", vds_state_callback, state))) {
+        vds_set_error(state, "failed to bind browser state probe");
+    }
+    const char *probe_js =
+        "(function(){"
+        "function send(){"
+        "var t=(document.body&&document.body.innerText)||'';"
+        "if(t.length>12000)t=t.slice(0,12000);"
+        "window.__vds_state(encodeURIComponent(location.href),"
+        "encodeURIComponent(document.title||''),encodeURIComponent(t));"
+        "}"
+        "if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',send,{once:true});}"
+        "else{setTimeout(send,0);}"
+        "window.addEventListener('load',send,{once:true});"
+        "})();";
+    if (!vds_ok(webview_init(state->view, probe_js))) {
+        vds_set_error(state, "failed to install browser state probe");
+    }
     if (!vds_ok(webview_set_size(state->view, width, height, WEBVIEW_HINT_NONE))) {
         vds_set_error(state, "webview_set_size failed");
     }
@@ -106,10 +198,23 @@ int vds_webview2_set_visible(void *handle, int visible) {
 }
 
 extern "C" __declspec(dllexport)
+int vds_webview2_probe(void *handle, uint64_t *load_count, char *url, int url_cap,
+    char *title, int title_cap, char *text, int text_cap) {
+    auto *state = static_cast<VdsWebView2Surface *>(handle);
+    if (!state || !state->view) return 0;
+    if (load_count) *load_count = state->load_count;
+    vds_copy_text(state->url, url, url_cap);
+    vds_copy_text(state->title, title, title_cap);
+    vds_copy_text(state->visible_text, text, text_cap);
+    return state->load_count > 0 ? 1 : 0;
+}
+
+extern "C" __declspec(dllexport)
 void vds_webview2_destroy(void *handle) {
     auto *state = static_cast<VdsWebView2Surface *>(handle);
     if (!state) return;
     if (state->view) {
+        webview_unbind(state->view, "__vds_state");
         webview_destroy(state->view);
         state->view = nullptr;
     }
