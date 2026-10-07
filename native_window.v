@@ -158,6 +158,9 @@ fn native_window_flags(config SurfaceConfig) int {
 	if config.borderless {
 		flags |= 2
 	}
+	if config.hidden {
+		flags |= 4
+	}
 	return flags
 }
 
