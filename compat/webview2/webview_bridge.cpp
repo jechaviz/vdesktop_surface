@@ -174,7 +174,7 @@ void *vds_webview2_create(uint64_t parent_handle, int x, int y, int width, int h
         "var controls=nodes.map(function(e,i){"
         "var id=e.id||('web-'+i);"
         "if(!e.id)e.setAttribute('data-hebrowser-control',id);"
-        "var selector=e.id?('#'+CSS.escape(e.id)):('[data-hebrowser-control="'+id+'"]');"
+        "var selector=e.id?('#'+CSS.escape(e.id)):('[data-hebrowser-control='+id+']');"
         "var role=e.getAttribute('role')||e.tagName.toLowerCase();"
         "var label=e.getAttribute('aria-label')||e.getAttribute('title')||e.getAttribute('placeholder')||e.innerText||e.value||'';"
         "var name=e.getAttribute('name')||'';"
