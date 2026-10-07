@@ -2,6 +2,9 @@ module vdesktop_surface
 
 #flag windows -luser32
 #flag windows -lgdi32
+#flag windows -lole32
+#flag windows -lwindowscodecs
+#flag windows -lmsimg32
 #flag windows @VMODROOT/native_win32.c
 
 $if windows {
