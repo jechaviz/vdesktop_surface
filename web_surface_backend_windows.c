@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
+typedef int (__cdecl *vds_abi_fn)(void);
 typedef void *(__cdecl *vds_create_fn)(uint64_t, int, int, int, int, const char *, int);
 typedef int (__cdecl *vds_navigate_fn)(void *, const char *);
 typedef int (__cdecl *vds_bounds_fn)(void *, int, int, int, int);
@@ -36,6 +37,7 @@ static int vds_load_from(const char *path) {
     HMODULE module = LoadLibraryA(path);
     if (!module) return 0;
 
+    vds_abi_fn abi_fn = (vds_abi_fn)GetProcAddress(module, "vds_webview2_abi_version");
     vds_create_fn create_fn = (vds_create_fn)GetProcAddress(module, "vds_webview2_create");
     vds_navigate_fn navigate_fn = (vds_navigate_fn)GetProcAddress(module, "vds_webview2_navigate");
     vds_bounds_fn bounds_fn = (vds_bounds_fn)GetProcAddress(module, "vds_webview2_set_bounds");
@@ -45,8 +47,8 @@ static int vds_load_from(const char *path) {
     vds_destroy_fn destroy_fn = (vds_destroy_fn)GetProcAddress(module, "vds_webview2_destroy");
     vds_probe_fn probe_fn = (vds_probe_fn)GetProcAddress(module, "vds_webview2_probe");
     vds_error_fn error_fn = (vds_error_fn)GetProcAddress(module, "vds_webview2_last_error");
-    if (!create_fn || !navigate_fn || !bounds_fn || !visible_fn || !eval_action_fn
-        || !destroy_fn || !probe_fn || !error_fn) {
+    if (!abi_fn || abi_fn() < 2 || !create_fn || !navigate_fn || !bounds_fn || !visible_fn
+        || !eval_action_fn || !destroy_fn || !probe_fn || !error_fn) {
         FreeLibrary(module);
         return 0;
     }
