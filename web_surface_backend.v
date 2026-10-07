@@ -9,8 +9,11 @@ $if windows {
 	fn C.vdesktop_surface_web_navigate(handle voidptr, url &u8) int
 	fn C.vdesktop_surface_web_set_bounds(handle voidptr, x int, y int, w int, h int) int
 	fn C.vdesktop_surface_web_set_visible(handle voidptr, visible int) int
+	fn C.vdesktop_surface_web_eval_action(handle voidptr, action_id &u8, script &u8) int
 	fn C.vdesktop_surface_web_probe(handle voidptr, load_count &u64, url &u8, url_cap int,
-		title &u8, title_cap int, text &u8, text_cap int) int
+		title &u8, title_cap int, text &u8, text_cap int, action_count &u64,
+		action_id &u8, action_id_cap int, action_ok &int, action_message &u8,
+		action_message_cap int) int
 	fn C.vdesktop_surface_web_destroy(handle voidptr)
 }
 
@@ -20,7 +23,11 @@ pub:
 	load_count   u64
 	url          string
 	title        string
-	visible_text string
+	visible_text   string
+	action_count   u64
+	action_id      string
+	action_ok      bool
+	action_message string
 }
 
 pub struct WebSurfaceHost {
@@ -143,6 +150,23 @@ fn (host WebSurfaceHost) require_attached(id string) ! {
 	}
 }
 
+pub fn (host WebSurfaceHost) eval_action(action_id string, script string) ! {
+	host.require_attached(host.state.id)!
+	if action_id.trim_space() == '' {
+		return error('embedded web action requires action id')
+	}
+	if script.trim_space() == '' {
+		return error('embedded web action requires script')
+	}
+	$if windows {
+		if C.vdesktop_surface_web_eval_action(host.handle, action_id.str, script.str) == 0 {
+			return error('embedded web action dispatch failed')
+		}
+	} $else {
+		return error('embedded web surface backend is available on Windows only')
+	}
+}
+
 pub fn (host WebSurfaceHost) probe() WebSurfaceProbe {
 	if !host.state.attached || isnil(host.handle) {
 		return WebSurfaceProbe{}
@@ -152,14 +176,23 @@ pub fn (host WebSurfaceHost) probe() WebSurfaceProbe {
 		mut url := []u8{len: 4096}
 		mut title := []u8{len: 1024}
 		mut body := []u8{len: 12001}
+		mut action_count := u64(0)
+		mut action_id := []u8{len: 256}
+		mut action_ok := 0
+		mut action_message := []u8{len: 2048}
 		ready := C.vdesktop_surface_web_probe(host.handle, &load_count, &url[0], url.len,
-			&title[0], title.len, &body[0], body.len) != 0
+			&title[0], title.len, &body[0], body.len, &action_count, &action_id[0],
+			action_id.len, &action_ok, &action_message[0], action_message.len) != 0
 		return WebSurfaceProbe{
 			ready: ready
 			load_count: load_count
 			url: nul_terminated_text(url)
 			title: nul_terminated_text(title)
 			visible_text: nul_terminated_text(body)
+			action_count: action_count
+			action_id: nul_terminated_text(action_id)
+			action_ok: action_ok != 0
+			action_message: nul_terminated_text(action_message)
 		}
 	} $else {
 		return WebSurfaceProbe{}
