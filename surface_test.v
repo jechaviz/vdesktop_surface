@@ -30,3 +30,25 @@ fn test_embedded_web_surface_contracts() {
 	assert show_web_surface('main', false, 4).valid()
 	assert close_web_surface('main', 5).valid()
 }
+
+
+fn test_image_command_is_valid_and_transport_encoded() {
+	list := DisplayList{
+		revision: 7
+		viewport: vdirty_regions.Rect{x: 0, y: 0, w: 640, h: 480}
+		commands: [
+			DisplayCommand{
+				kind: .image
+				rect: vdirty_regions.Rect{x: 10, y: 20, w: 320, h: 180}
+				source: 'C:\\cache\\hero image.png'
+			},
+		]
+		dirty: [vdirty_regions.Rect{x: 10, y: 20, w: 320, h: 180}]
+	}
+	assert list.valid()
+	assert list.command_count(.image) == 1
+	payload := encode_display_list(list)
+	assert payload.contains('I|10|20|320|180|')
+	assert payload.contains('hero image.png')
+	assert contract(SurfaceConfig{}).bitmap_images
+}
