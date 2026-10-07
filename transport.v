@@ -25,6 +25,9 @@ pub fn encode_display_list(list DisplayList) string {
 			.icon {
 				out.writeln('T|${command.rect.x}|${command.rect.y}|${command.rect.w}|${command.rect.h}|${command.value}|${escape_transport(command.icon)}')
 			}
+			.image {
+				out.writeln('I|${command.rect.x}|${command.rect.y}|${command.rect.w}|${command.rect.h}|${escape_transport(command.source)}')
+			}
 			.clip {}
 		}
 	}
