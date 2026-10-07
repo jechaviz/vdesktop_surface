@@ -118,10 +118,18 @@ int vdesktop_surface_web_set_visible(void *handle, int visible) {
     return g_vds_visible(handle, visible);
 }
 
-int vdesktop_surface_web_probe(void *handle, uint64_t *load_count, char *url, int url_cap,
-    char *title, int title_cap, char *text, int text_cap) {
+int vdesktop_surface_web_eval_action(void *handle, const char *action_id, const char *script) {
     if (!handle || !vds_ensure_loaded()) return 0;
-    return g_vds_probe(handle, load_count, url, url_cap, title, title_cap, text, text_cap);
+    return g_vds_eval_action(handle, action_id, script);
+}
+
+int vdesktop_surface_web_probe(void *handle, uint64_t *load_count, char *url, int url_cap,
+    char *title, int title_cap, char *text, int text_cap, uint64_t *action_count,
+    char *action_id, int action_id_cap, int *action_ok, char *action_message,
+    int action_message_cap) {
+    if (!handle || !vds_ensure_loaded()) return 0;
+    return g_vds_probe(handle, load_count, url, url_cap, title, title_cap, text, text_cap,
+        action_count, action_id, action_id_cap, action_ok, action_message, action_message_cap);
 }
 
 void vdesktop_surface_web_destroy(void *handle) {
