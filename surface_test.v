@@ -18,3 +18,15 @@ fn test_display_list_contract() {
 	assert ready(config, list)
 	assert list.command_count(.rect) == 1
 }
+
+
+fn test_embedded_web_surface_contracts() {
+	attach := attach_web_surface('main', 42, 'https://example.com',
+		vdirty_regions.Rect{x: 10, y: 20, w: 800, h: 600}, 1)
+	assert attach.valid()
+	assert attach.kind == .attach
+	assert navigate_web_surface('main', 'https://example.org', 2).valid()
+	assert resize_web_surface('main', vdirty_regions.Rect{x: 0, y: 0, w: 640, h: 480}, 3).valid()
+	assert show_web_surface('main', false, 4).valid()
+	assert close_web_surface('main', 5).valid()
+}
