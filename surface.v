@@ -16,6 +16,7 @@ pub:
 	height int = 800
 	start_maximized bool
 	borderless bool
+	hidden bool
 	backend Backend = .auto
 }
 
