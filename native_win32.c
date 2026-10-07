@@ -1,7 +1,10 @@
 #define WIN32_LEAN_AND_MEAN
+#define COBJMACROS
 #include <windows.h>
 #include <windowsx.h>
 #include <stdint.h>
+#include <wincodec.h>
+#include <objbase.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -38,6 +41,20 @@ typedef struct VdsWindow {
 
 static const wchar_t *k_vds_class = L"VDesktopSurfaceWindow";
 static ATOM g_vds_class_atom = 0;
+static IWICImagingFactory *g_vds_wic_factory = NULL;
+
+static IWICImagingFactory *vds_wic_factory(void) {
+    if (g_vds_wic_factory) return g_vds_wic_factory;
+    HRESULT init = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    if (FAILED(init) && init != RPC_E_CHANGED_MODE) return NULL;
+    HRESULT hr = CoCreateInstance(&CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER,
+        &IID_IWICImagingFactory, (LPVOID *)&g_vds_wic_factory);
+    if (FAILED(hr)) {
+        g_vds_wic_factory = NULL;
+        return NULL;
+    }
+    return g_vds_wic_factory;
+}
 
 static void vds_push_event(VdsWindow *state, VdsEvent event) {
     if (!state) return;
@@ -156,6 +173,88 @@ static void vds_text(VdsWindow *state, HDC dc, int x, int y, int w, int h,
     SelectObject(dc, old_font);
 }
 
+static void vds_image(HDC dc, int x, int y, int w, int h, const char *encoded_path) {
+    if (!dc || w <= 0 || h <= 0 || !encoded_path || !encoded_path[0]) return;
+    IWICImagingFactory *factory = vds_wic_factory();
+    if (!factory) return;
+
+    char utf8[3072];
+    wchar_t path[3072];
+    vds_unescape(encoded_path, utf8, sizeof(utf8));
+    vds_utf8_to_wide(utf8, path, (int)(sizeof(path) / sizeof(path[0])));
+    if (!path[0]) return;
+
+    IWICBitmapDecoder *decoder = NULL;
+    IWICBitmapFrameDecode *frame = NULL;
+    IWICBitmapScaler *scaler = NULL;
+    IWICFormatConverter *converter = NULL;
+    unsigned char *pixels = NULL;
+    HBITMAP bitmap = NULL;
+    HDC mem = NULL;
+    HGDIOBJ old_bitmap = NULL;
+
+    HRESULT hr = IWICImagingFactory_CreateDecoderFromFilename(factory, path, NULL,
+        GENERIC_READ, WICDecodeMetadataCacheOnDemand, &decoder);
+    if (FAILED(hr) || !decoder) goto cleanup;
+    hr = IWICBitmapDecoder_GetFrame(decoder, 0, &frame);
+    if (FAILED(hr) || !frame) goto cleanup;
+    hr = IWICImagingFactory_CreateBitmapScaler(factory, &scaler);
+    if (FAILED(hr) || !scaler) goto cleanup;
+    hr = IWICBitmapScaler_Initialize(scaler, (IWICBitmapSource *)frame,
+        (UINT)w, (UINT)h, WICBitmapInterpolationModeFant);
+    if (FAILED(hr)) goto cleanup;
+    hr = IWICImagingFactory_CreateFormatConverter(factory, &converter);
+    if (FAILED(hr) || !converter) goto cleanup;
+    hr = IWICFormatConverter_Initialize(converter, (IWICBitmapSource *)scaler,
+        &GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, NULL, 0.0,
+        WICBitmapPaletteTypeCustom);
+    if (FAILED(hr)) goto cleanup;
+
+    UINT stride = (UINT)w * 4u;
+    UINT buffer_size = stride * (UINT)h;
+    if (buffer_size == 0 || buffer_size > 268435456u) goto cleanup;
+    pixels = (unsigned char *)malloc(buffer_size);
+    if (!pixels) goto cleanup;
+    hr = IWICFormatConverter_CopyPixels(converter, NULL, stride, buffer_size, pixels);
+    if (FAILED(hr)) goto cleanup;
+
+    BITMAPINFO bmi;
+    ZeroMemory(&bmi, sizeof(bmi));
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = w;
+    bmi.bmiHeader.biHeight = -h;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+
+    void *bits = NULL;
+    bitmap = CreateDIBSection(dc, &bmi, DIB_RGB_COLORS, &bits, NULL, 0);
+    if (!bitmap || !bits) goto cleanup;
+    memcpy(bits, pixels, buffer_size);
+    mem = CreateCompatibleDC(dc);
+    if (!mem) goto cleanup;
+    old_bitmap = SelectObject(mem, bitmap);
+
+    BLENDFUNCTION blend;
+    blend.BlendOp = AC_SRC_OVER;
+    blend.BlendFlags = 0;
+    blend.SourceConstantAlpha = 255;
+    blend.AlphaFormat = AC_SRC_ALPHA;
+    AlphaBlend(dc, x, y, w, h, mem, 0, 0, w, h, blend);
+
+cleanup:
+    if (mem) {
+        if (old_bitmap) SelectObject(mem, old_bitmap);
+        DeleteDC(mem);
+    }
+    if (bitmap) DeleteObject(bitmap);
+    if (pixels) free(pixels);
+    if (converter) IWICFormatConverter_Release(converter);
+    if (scaler) IWICBitmapScaler_Release(scaler);
+    if (frame) IWICBitmapFrameDecode_Release(frame);
+    if (decoder) IWICBitmapDecoder_Release(decoder);
+}
+
 static void vds_draw_payload(VdsWindow *state, HDC dc, RECT client) {
     vds_fill(dc, 0, 0, client.right - client.left, client.bottom - client.top, 0xff0f1115u);
     if (!state || !state->payload) return;
@@ -191,6 +290,11 @@ static void vds_draw_payload(VdsWindow *state, HDC dc, RECT client) {
                 if (sscanf(line, "T|%d|%d|%d|%d|%u|%3071[^\n]",
                     &x, &y, &w, &h, &color, encoded) == 6)
                     vds_text(state, dc, x, y, w, h, color, encoded);
+            } else if (line[0] == 'I') {
+                char encoded[3072] = {0};
+                if (sscanf(line, "I|%d|%d|%d|%d|%3071[^\n]",
+                    &x, &y, &w, &h, encoded) == 5)
+                    vds_image(dc, x, y, w, h, encoded);
             }
         }
         if (!end) break;
