@@ -12,6 +12,7 @@ $if windows {
 	fn C.vdesktop_surface_set_payload(handle voidptr, payload &u8)
 	fn C.vdesktop_surface_present(handle voidptr)
 	fn C.vdesktop_surface_destroy(handle voidptr)
+	fn C.vdesktop_surface_native_handle(handle voidptr) u64
 }
 
 pub enum EventKind {
@@ -115,6 +116,17 @@ pub fn (window NativeWindow) set_display_list(list DisplayList) {
 		}
 		payload := encode_display_list(list)
 		C.vdesktop_surface_set_payload(window.handle, payload.str)
+	}
+}
+
+pub fn (window NativeWindow) native_handle() u64 {
+	$if windows {
+		if isnil(window.handle) {
+			return 0
+		}
+		return C.vdesktop_surface_native_handle(window.handle)
+	} $else {
+		return 0
 	}
 }
 
