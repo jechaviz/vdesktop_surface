@@ -52,3 +52,13 @@ fn test_image_command_is_valid_and_transport_encoded() {
 	assert payload.contains('hero image.png')
 	assert contract(SurfaceConfig{}).bitmap_images
 }
+
+
+fn test_hidden_surface_flag_is_distinct() {
+	config := SurfaceConfig{
+		hidden: true
+	}
+	assert native_window_flags(config) & 4 != 0
+	assert !config.start_maximized
+	assert !config.borderless
+}
