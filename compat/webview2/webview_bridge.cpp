@@ -254,14 +254,20 @@ int vds_webview2_set_visible(void *handle, int visible) {
 
 extern "C" __declspec(dllexport)
 int vds_webview2_probe(void *handle, uint64_t *load_count, char *url, int url_cap,
-    char *title, int title_cap, char *text, int text_cap) {
+    char *title, int title_cap, char *text, int text_cap, uint64_t *action_count,
+    char *action_id, int action_id_cap, int *action_ok, char *action_message,
+    int action_message_cap) {
     auto *state = static_cast<VdsWebView2Surface *>(handle);
     if (!state || !state->view) return 0;
     if (load_count) *load_count = state->load_count;
+    if (action_count) *action_count = state->action_count;
+    if (action_ok) *action_ok = state->action_ok ? 1 : 0;
     vds_copy_text(state->url, url, url_cap);
     vds_copy_text(state->title, title, title_cap);
     vds_copy_text(state->visible_text, text, text_cap);
-    return state->load_count > 0 ? 1 : 0;
+    vds_copy_text(state->action_id, action_id, action_id_cap);
+    vds_copy_text(state->action_message, action_message, action_message_cap);
+    return state->load_count > 0 || state->action_count > 0 ? 1 : 0;
 }
 
 extern "C" __declspec(dllexport)
@@ -269,6 +275,7 @@ void vds_webview2_destroy(void *handle) {
     auto *state = static_cast<VdsWebView2Surface *>(handle);
     if (!state) return;
     if (state->view) {
+        webview_unbind(state->view, "__vds_action");
         webview_unbind(state->view, "__vds_state");
         webview_destroy(state->view);
         state->view = nullptr;
