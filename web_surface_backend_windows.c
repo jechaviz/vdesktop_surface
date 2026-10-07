@@ -111,6 +111,12 @@ int vdesktop_surface_web_set_visible(void *handle, int visible) {
     return g_vds_visible(handle, visible);
 }
 
+int vdesktop_surface_web_probe(void *handle, uint64_t *load_count, char *url, int url_cap,
+    char *title, int title_cap, char *text, int text_cap) {
+    if (!handle || !vds_ensure_loaded()) return 0;
+    return g_vds_probe(handle, load_count, url, url_cap, title, title_cap, text, text_cap);
+}
+
 void vdesktop_surface_web_destroy(void *handle) {
     if (handle && vds_ensure_loaded()) g_vds_destroy(handle);
 }
