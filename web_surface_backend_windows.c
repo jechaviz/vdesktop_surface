@@ -11,7 +11,7 @@ typedef int (__cdecl *vds_visible_fn)(void *, int);
 typedef int (__cdecl *vds_eval_action_fn)(void *, const char *, const char *);
 typedef void (__cdecl *vds_destroy_fn)(void *);
 typedef int (__cdecl *vds_probe_fn)(void *, uint64_t *, char *, int, char *, int, char *, int,
-    uint64_t *, char *, int, int *, char *, int);
+    char *, int, uint64_t *, char *, int, int *, char *, int);
 typedef const char *(__cdecl *vds_error_fn)(void *);
 
 static HMODULE g_vds_web_module = NULL;
@@ -124,12 +124,13 @@ int vdesktop_surface_web_eval_action(void *handle, const char *action_id, const 
 }
 
 int vdesktop_surface_web_probe(void *handle, uint64_t *load_count, char *url, int url_cap,
-    char *title, int title_cap, char *text, int text_cap, uint64_t *action_count,
-    char *action_id, int action_id_cap, int *action_ok, char *action_message,
-    int action_message_cap) {
+    char *title, int title_cap, char *text, int text_cap, char *controls, int controls_cap,
+    uint64_t *action_count, char *action_id, int action_id_cap, int *action_ok,
+    char *action_message, int action_message_cap) {
     if (!handle || !vds_ensure_loaded()) return 0;
     return g_vds_probe(handle, load_count, url, url_cap, title, title_cap, text, text_cap,
-        action_count, action_id, action_id_cap, action_ok, action_message, action_message_cap);
+        controls, controls_cap, action_count, action_id, action_id_cap, action_ok,
+        action_message, action_message_cap);
 }
 
 void vdesktop_surface_web_destroy(void *handle) {
