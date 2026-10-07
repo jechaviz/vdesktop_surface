@@ -27,6 +27,7 @@ pub:
 	dirty_regions bool = true
 	unicode_text bool = true
 	double_buffered bool = true
+	bitmap_images bool = true
 }
 
 pub fn contract(config SurfaceConfig) SurfaceContract {
