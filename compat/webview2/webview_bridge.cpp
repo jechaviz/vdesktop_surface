@@ -120,6 +120,11 @@ static void vds_copy_text(const std::string &value, char *out, int cap) {
 }
 
 extern "C" __declspec(dllexport)
+int vds_webview2_abi_version(void) {
+    return 2;
+}
+
+extern "C" __declspec(dllexport)
 void *vds_webview2_create(uint64_t parent_handle, int x, int y, int width, int height,
     const char *url, int debug) {
     HWND parent = reinterpret_cast<HWND>(static_cast<uintptr_t>(parent_handle));
