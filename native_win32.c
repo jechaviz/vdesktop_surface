@@ -11,6 +11,7 @@
 
 #define VDS_FLAG_MAXIMIZED 1
 #define VDS_FLAG_BORDERLESS 2
+#define VDS_FLAG_HIDDEN 4
 #define VDS_EVENT_CLOSE 1
 #define VDS_EVENT_RESIZE 2
 #define VDS_EVENT_POINTER_DOWN 3
@@ -448,8 +449,12 @@ void *vdesktop_surface_open(const char *title, int width, int height, int flags,
         return NULL;
     }
     state->hwnd = hwnd;
-    ShowWindow(hwnd, (flags & VDS_FLAG_MAXIMIZED) ? SW_MAXIMIZE : SW_SHOW);
-    UpdateWindow(hwnd);
+    if (flags & VDS_FLAG_HIDDEN) {
+        ShowWindow(hwnd, SW_HIDE);
+    } else {
+        ShowWindow(hwnd, (flags & VDS_FLAG_MAXIMIZED) ? SW_MAXIMIZE : SW_SHOW);
+        UpdateWindow(hwnd);
+    }
     return state;
 }
 
