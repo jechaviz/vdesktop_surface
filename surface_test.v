@@ -62,3 +62,17 @@ fn test_hidden_surface_flag_is_distinct() {
 	assert !config.start_maximized
 	assert !config.borderless
 }
+
+
+fn test_surface_event_modifier_helpers() {
+	event := SurfaceEvent{
+		kind: .key_down
+		key: 76
+		modifiers: 1 | 2 | 4
+	}
+	assert event.ctrl()
+	assert event.shift()
+	assert event.alt()
+	assert !event.win()
+	assert !SurfaceEvent{kind: .key_down}.ctrl()
+}
