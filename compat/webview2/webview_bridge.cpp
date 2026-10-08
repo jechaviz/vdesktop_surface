@@ -351,7 +351,7 @@ void *vds_webview2_create(uint64_t parent_handle, int x, int y, int width, int h
         "if(document.documentElement)startObserver();else document.addEventListener('DOMContentLoaded',startObserver,{once:true});"
         "}"
         "if(document.readyState==='complete'){setTimeout(function(){send('load');},0);}"
-        "else{
+        "else{"
         "if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){send('state');},{once:true});}"
         "window.addEventListener('load',function(){send('load');},{once:true});"
         "}"
