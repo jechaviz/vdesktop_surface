@@ -2,6 +2,23 @@ module vdesktop_surface
 
 import vdirty_regions
 
+pub struct WebSurfaceCookie {
+pub:
+	name       string
+	value      string
+	domain     string
+	path       string = '/'
+	secure     bool
+	http_only  bool
+	same_site  string
+	expires_unix i64 = -1
+}
+
+pub fn (cookie WebSurfaceCookie) valid() bool {
+	return cookie.name.trim_space() != '' && cookie.domain.trim_space() != ''
+		&& cookie.path.starts_with('/')
+}
+
 pub enum WebSurfaceCommandKind {
 	attach
 	navigate
