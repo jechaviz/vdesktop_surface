@@ -228,14 +228,14 @@ pub fn (host WebSurfaceHost) probe() WebSurfaceProbe {
 		mut download_state := []u8{len: 64}
 		mut download_bytes := i64(0)
 		mut download_total := i64(-1)
-		ready := C.vdesktop_surface_web_probe(host.handle, &load_count, &state_count,
+		ready := unsafe { C.vdesktop_surface_web_probe(host.handle, &load_count, &state_count,
 			&url[0], url.len, &title[0], title.len, &body[0], body.len,
 			&controls[0], controls.len,
 			&structure[0], structure.len, &action_count, &action_id[0], action_id.len,
 			&action_ok, &action_message[0], action_message.len, &download_count,
 			&download_url[0], download_url.len, &download_path[0], download_path.len,
 			&download_mime[0], download_mime.len, &download_state[0], download_state.len,
-			&download_bytes, &download_total) != 0
+			&download_bytes, &download_total) != 0 }
 		return WebSurfaceProbe{
 			ready: ready
 			load_count: load_count
