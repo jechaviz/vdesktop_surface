@@ -16,6 +16,7 @@ struct VdsWebView2Surface {
     std::string title;
     std::string visible_text;
     std::string controls_text;
+    std::string structure_text;
     uint64_t load_count = 0;
     uint64_t action_count = 0;
     std::string action_id;
@@ -88,6 +89,7 @@ static void vds_state_callback(const char *seq, const char *request, void *arg) 
         state->title = values[1];
         state->visible_text = values[2];
         state->controls_text = values.size() >= 4 ? values[3] : "";
+        state->structure_text = values.size() >= 5 ? values[4] : "";
         state->load_count++;
         state->last_error.clear();
     }
@@ -121,7 +123,7 @@ static void vds_copy_text(const std::string &value, char *out, int cap) {
 
 extern "C" __declspec(dllexport)
 int vds_webview2_abi_version(void) {
-    return 2;
+    return 3;
 }
 
 extern "C" __declspec(dllexport)
@@ -184,8 +186,26 @@ void *vds_webview2_create(uint64_t parent_handle, int x, int y, int width, int h
         "var checked=(('checked' in e)&&e.checked)?'1':'0';"
         "return [id,role,label,name,value,selector,href,disabled,checked].map(clean).join('\\t');"
         "}).join('\\n');"
+        "function clip(v,n){v=clean(v);return v.length>n?v.slice(0,n):v;}"
+        "var desc=document.querySelector('meta[name=description],meta[property=\\"og:description\\"]');"
+        "var canonical=document.querySelector('link[rel~=canonical]');"
+        "var structure={"
+        "description:clip(desc&&desc.content||'',1000),"
+        "language:clip(document.documentElement&&document.documentElement.lang||'',32),"
+        "canonical_url:clip(canonical&&canonical.href||'',2048),"
+        "headings:[...document.querySelectorAll('h1,h2,h3,h4,h5,h6')].slice(0,128).map(function(e){return {level:Number(e.tagName.slice(1))||0,text:clip(e.innerText||e.textContent||'',500)};}),"
+        "links:[...document.querySelectorAll('a[href]')].slice(0,256).map(function(e){return {text:clip(e.innerText||e.textContent||'',500),href:clip(e.href||'',2048)};}),"
+        "images:[...document.images].slice(0,128).map(function(e){return {alt:clip(e.alt||'',500),src:clip(e.currentSrc||e.src||'',2048)};}),"
+        "tables:[...document.querySelectorAll('table')].slice(0,32).map(function(table){"
+        "var rows=[...table.rows];var cols=0;rows.forEach(function(r){cols=Math.max(cols,r.cells.length);});"
+        "return {caption:clip(table.caption&&table.caption.innerText||'',500),"
+        "headers:[...table.querySelectorAll('th')].slice(0,32).map(function(h){return clip(h.innerText||h.textContent||'',300);}),"
+        "row_count:rows.length,column_count:cols};})"
+        "};"
+        "var structureJson=JSON.stringify(structure);"
         "window.__vds_state(encodeURIComponent(location.href),"
-        "encodeURIComponent(document.title||''),encodeURIComponent(t),encodeURIComponent(controls));"
+        "encodeURIComponent(document.title||''),encodeURIComponent(t),encodeURIComponent(controls),"
+        "encodeURIComponent(structureJson));"
         "}"
         "window.__vds_probe_state=send;"
         "if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',send,{once:true});}"
@@ -278,8 +298,8 @@ int vds_webview2_set_visible(void *handle, int visible) {
 extern "C" __declspec(dllexport)
 int vds_webview2_probe(void *handle, uint64_t *load_count, char *url, int url_cap,
     char *title, int title_cap, char *text, int text_cap, char *controls, int controls_cap,
-    uint64_t *action_count, char *action_id, int action_id_cap, int *action_ok,
-    char *action_message, int action_message_cap) {
+    char *structure, int structure_cap, uint64_t *action_count, char *action_id,
+    int action_id_cap, int *action_ok, char *action_message, int action_message_cap) {
     auto *state = static_cast<VdsWebView2Surface *>(handle);
     if (!state || !state->view) return 0;
     if (load_count) *load_count = state->load_count;
@@ -289,6 +309,7 @@ int vds_webview2_probe(void *handle, uint64_t *load_count, char *url, int url_ca
     vds_copy_text(state->title, title, title_cap);
     vds_copy_text(state->visible_text, text, text_cap);
     vds_copy_text(state->controls_text, controls, controls_cap);
+    vds_copy_text(state->structure_text, structure, structure_cap);
     vds_copy_text(state->action_id, action_id, action_id_cap);
     vds_copy_text(state->action_message, action_message, action_message_cap);
     return state->load_count > 0 || state->action_count > 0 ? 1 : 0;
