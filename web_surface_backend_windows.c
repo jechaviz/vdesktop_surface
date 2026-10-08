@@ -10,6 +10,8 @@ typedef int (__cdecl *vds_navigate_fn)(void *, const char *);
 typedef int (__cdecl *vds_bounds_fn)(void *, int, int, int, int);
 typedef int (__cdecl *vds_visible_fn)(void *, int);
 typedef int (__cdecl *vds_eval_action_fn)(void *, const char *, const char *);
+typedef int (__cdecl *vds_set_cookie_fn)(void *, const char *, const char *, const char *,
+    const char *, int, int, const char *, int64_t);
 typedef void (__cdecl *vds_destroy_fn)(void *);
 typedef int (__cdecl *vds_probe_fn)(void *, uint64_t *, char *, int, char *, int, char *, int,
     char *, int, char *, int, uint64_t *, char *, int, int *, char *, int);
@@ -21,6 +23,7 @@ static vds_navigate_fn g_vds_navigate = NULL;
 static vds_bounds_fn g_vds_bounds = NULL;
 static vds_visible_fn g_vds_visible = NULL;
 static vds_eval_action_fn g_vds_eval_action = NULL;
+static vds_set_cookie_fn g_vds_set_cookie = NULL;
 static vds_destroy_fn g_vds_destroy = NULL;
 static vds_probe_fn g_vds_probe = NULL;
 static vds_error_fn g_vds_error = NULL;
@@ -44,6 +47,8 @@ static int vds_load_from(const char *path) {
     vds_visible_fn visible_fn = (vds_visible_fn)GetProcAddress(module, "vds_webview2_set_visible");
     vds_eval_action_fn eval_action_fn =
         (vds_eval_action_fn)GetProcAddress(module, "vds_webview2_eval_action");
+    vds_set_cookie_fn set_cookie_fn =
+        (vds_set_cookie_fn)GetProcAddress(module, "vds_webview2_set_cookie");
     vds_destroy_fn destroy_fn = (vds_destroy_fn)GetProcAddress(module, "vds_webview2_destroy");
     vds_probe_fn probe_fn = (vds_probe_fn)GetProcAddress(module, "vds_webview2_probe");
     vds_error_fn error_fn = (vds_error_fn)GetProcAddress(module, "vds_webview2_last_error");
@@ -59,6 +64,7 @@ static int vds_load_from(const char *path) {
     g_vds_bounds = bounds_fn;
     g_vds_visible = visible_fn;
     g_vds_eval_action = eval_action_fn;
+    g_vds_set_cookie = set_cookie_fn;
     g_vds_destroy = destroy_fn;
     g_vds_probe = probe_fn;
     g_vds_error = error_fn;
@@ -123,6 +129,14 @@ int vdesktop_surface_web_set_visible(void *handle, int visible) {
 int vdesktop_surface_web_eval_action(void *handle, const char *action_id, const char *script) {
     if (!handle || !vds_ensure_loaded()) return 0;
     return g_vds_eval_action(handle, action_id, script);
+}
+
+int vdesktop_surface_web_set_cookie(void *handle, const char *name, const char *value,
+    const char *domain, const char *path, int secure, int http_only,
+    const char *same_site, int64_t expires_unix) {
+    if (!handle || !vds_ensure_loaded() || !g_vds_set_cookie) return 0;
+    return g_vds_set_cookie(handle, name, value, domain, path, secure, http_only,
+        same_site, expires_unix);
 }
 
 int vdesktop_surface_web_probe(void *handle, uint64_t *load_count, char *url, int url_cap,
