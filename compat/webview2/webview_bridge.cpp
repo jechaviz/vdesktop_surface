@@ -91,7 +91,9 @@ static void vds_state_callback(const char *seq, const char *request, void *arg) 
         state->visible_text = values[2];
         state->controls_text = values.size() >= 4 ? values[3] : "";
         state->structure_text = values.size() >= 5 ? values[4] : "";
-        state->load_count++;
+        if (values.size() >= 6 && values[5] == "load") {
+            state->load_count++;
+        }
         state->last_error.clear();
     }
     if (state->view && seq) {
@@ -136,7 +138,7 @@ static void vds_copy_text(const std::string &value, char *out, int cap) {
 
 extern "C" __declspec(dllexport)
 int vds_webview2_abi_version(void) {
-    return 4;
+    return 5;
 }
 
 extern "C" __declspec(dllexport)
@@ -181,7 +183,7 @@ void *vds_webview2_create(uint64_t parent_handle, int x, int y, int width, int h
     const char *probe_js =
         "(function(){"
         "function clean(v){return String(v||'').replace(/[\\t\\r\\n]+/g,' ').trim();}"
-        "function send(){"
+        "function send(kind){"
         "var t=(document.body&&document.body.innerText)||'';"
         "if(t.length>12000)t=t.slice(0,12000);"
         "var q='a[href],button,input:not([type=hidden]),textarea,select,[role=button],[role=link],[contenteditable=true]';"
@@ -236,12 +238,14 @@ void *vds_webview2_create(uint64_t parent_handle, int x, int y, int width, int h
         "}"
         "window.__vds_state(encodeURIComponent(location.href),"
         "encodeURIComponent(document.title||''),encodeURIComponent(t),encodeURIComponent(controls),"
-        "encodeURIComponent(structureJson));"
+        "encodeURIComponent(structureJson),encodeURIComponent(kind||'state'));"
         "}"
         "window.__vds_probe_state=send;"
-        "if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',send,{once:true});}"
-        "else{setTimeout(send,0);}"
-        "window.addEventListener('load',send,{once:true});"
+        "if(document.readyState==='complete'){setTimeout(function(){send('load');},0);}"
+        "else{"
+        "if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){send('state');},{once:true});}"
+        "window.addEventListener('load',function(){send('load');},{once:true});"
+        "}"
         "})();";
     if (!vds_ok(webview_init(state->view, probe_js))) {
         vds_set_error(state, "failed to install browser state probe");
