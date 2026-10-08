@@ -52,7 +52,7 @@ static int vds_load_from(const char *path) {
     vds_destroy_fn destroy_fn = (vds_destroy_fn)GetProcAddress(module, "vds_webview2_destroy");
     vds_probe_fn probe_fn = (vds_probe_fn)GetProcAddress(module, "vds_webview2_probe");
     vds_error_fn error_fn = (vds_error_fn)GetProcAddress(module, "vds_webview2_last_error");
-    if (!abi_fn || abi_fn() < 3 || !create_fn || !navigate_fn || !bounds_fn || !visible_fn
+    if (!abi_fn || abi_fn() < 5 || !create_fn || !navigate_fn || !bounds_fn || !visible_fn
         || !eval_action_fn || !destroy_fn || !probe_fn || !error_fn) {
         FreeLibrary(module);
         return 0;
