@@ -18,6 +18,10 @@
 #define VDS_EVENT_POINTER_MOVE 4
 #define VDS_EVENT_KEY_DOWN 5
 #define VDS_EVENT_TEXT 6
+#define VDS_MOD_CTRL 1
+#define VDS_MOD_SHIFT 2
+#define VDS_MOD_ALT 4
+#define VDS_MOD_WIN 8
 #define VDS_QUEUE_CAP 128
 
 typedef struct VdsEvent {
@@ -27,6 +31,7 @@ typedef struct VdsEvent {
     int width;
     int height;
     int key;
+    int modifiers;
     uint32_t codepoint;
 } VdsEvent;
 
@@ -55,6 +60,16 @@ static IWICImagingFactory *vds_wic_factory(void) {
         return NULL;
     }
     return g_vds_wic_factory;
+}
+
+static int vds_modifiers(void) {
+    int modifiers = 0;
+    if (GetKeyState(VK_CONTROL) & 0x8000) modifiers |= VDS_MOD_CTRL;
+    if (GetKeyState(VK_SHIFT) & 0x8000) modifiers |= VDS_MOD_SHIFT;
+    if (GetKeyState(VK_MENU) & 0x8000) modifiers |= VDS_MOD_ALT;
+    if ((GetKeyState(VK_LWIN) & 0x8000) || (GetKeyState(VK_RWIN) & 0x8000))
+        modifiers |= VDS_MOD_WIN;
+    return modifiers;
 }
 
 static void vds_push_event(VdsWindow *state, VdsEvent event) {
@@ -362,6 +377,7 @@ static LRESULT CALLBACK vds_wndproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
             SetFocus(hwnd);
             VdsEvent event = {0};
             event.kind = VDS_EVENT_POINTER_DOWN;
+            event.modifiers = vds_modifiers();
             event.x = GET_X_LPARAM(lparam);
             event.y = GET_Y_LPARAM(lparam);
             vds_push_event(state, event);
@@ -371,6 +387,7 @@ static LRESULT CALLBACK vds_wndproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
         if (state) {
             VdsEvent event = {0};
             event.kind = VDS_EVENT_POINTER_MOVE;
+            event.modifiers = vds_modifiers();
             event.x = GET_X_LPARAM(lparam);
             event.y = GET_Y_LPARAM(lparam);
             vds_push_event(state, event);
@@ -380,6 +397,7 @@ static LRESULT CALLBACK vds_wndproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
         if (state) {
             VdsEvent event = {0};
             event.kind = VDS_EVENT_KEY_DOWN;
+            event.modifiers = vds_modifiers();
             event.key = (int)wparam;
             vds_push_event(state, event);
         }
@@ -388,6 +406,7 @@ static LRESULT CALLBACK vds_wndproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
         if (state) {
             VdsEvent event = {0};
             event.kind = VDS_EVENT_TEXT;
+            event.modifiers = vds_modifiers();
             event.codepoint = (uint32_t)wparam;
             vds_push_event(state, event);
         }
@@ -464,7 +483,7 @@ int vdesktop_surface_alive(void *handle) {
 }
 
 int vdesktop_surface_poll(void *handle, int *kind, int *x, int *y, int *width,
-    int *height, int *key, uint32_t *codepoint) {
+    int *height, int *key, int *modifiers, uint32_t *codepoint) {
     VdsWindow *state = (VdsWindow *)handle;
     if (!state) return 0;
 
@@ -486,6 +505,7 @@ int vdesktop_surface_poll(void *handle, int *kind, int *x, int *y, int *width,
     if (width) *width = event.width;
     if (height) *height = event.height;
     if (key) *key = event.key;
+    if (modifiers) *modifiers = event.modifiers;
     if (codepoint) *codepoint = event.codepoint;
     return 1;
 }
