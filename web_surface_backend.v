@@ -15,7 +15,10 @@ $if windows {
 	fn C.vdesktop_surface_web_probe(handle voidptr, load_count &u64, url &u8, url_cap int,
 		title &u8, title_cap int, text &u8, text_cap int, controls &u8, controls_cap int,
 		structure &u8, structure_cap int, action_count &u64, action_id &u8, action_id_cap int,
-		action_ok &int, action_message &u8, action_message_cap int) int
+		action_ok &int, action_message &u8, action_message_cap int, download_count &u64,
+		download_url &u8, download_url_cap int, download_path &u8, download_path_cap int,
+		download_mime &u8, download_mime_cap int, download_state &u8, download_state_cap int,
+		download_bytes &i64, download_total &i64) int
 	fn C.vdesktop_surface_web_destroy(handle voidptr)
 }
 
@@ -32,6 +35,13 @@ pub:
 	action_id      string
 	action_ok      bool
 	action_message string
+	download_count u64
+	download_url string
+	download_path string
+	download_mime string
+	download_state string
+	download_bytes i64
+	download_total i64
 }
 
 pub struct WebSurfaceHost {
@@ -208,10 +218,20 @@ pub fn (host WebSurfaceHost) probe() WebSurfaceProbe {
 		mut action_id := []u8{len: 256}
 		mut action_ok := 0
 		mut action_message := []u8{len: 2048}
+		mut download_count := u64(0)
+		mut download_url := []u8{len: 4096}
+		mut download_path := []u8{len: 4096}
+		mut download_mime := []u8{len: 512}
+		mut download_state := []u8{len: 64}
+		mut download_bytes := i64(0)
+		mut download_total := i64(-1)
 		ready := C.vdesktop_surface_web_probe(host.handle, &load_count, &url[0], url.len,
 			&title[0], title.len, &body[0], body.len, &controls[0], controls.len,
 			&structure[0], structure.len, &action_count, &action_id[0], action_id.len,
-			&action_ok, &action_message[0], action_message.len) != 0
+			&action_ok, &action_message[0], action_message.len, &download_count,
+			&download_url[0], download_url.len, &download_path[0], download_path.len,
+			&download_mime[0], download_mime.len, &download_state[0], download_state.len,
+			&download_bytes, &download_total) != 0
 		return WebSurfaceProbe{
 			ready: ready
 			load_count: load_count
@@ -224,6 +244,13 @@ pub fn (host WebSurfaceHost) probe() WebSurfaceProbe {
 			action_id: nul_terminated_text(action_id)
 			action_ok: action_ok != 0
 			action_message: nul_terminated_text(action_message)
+			download_count: download_count
+			download_url: nul_terminated_text(download_url)
+			download_path: nul_terminated_text(download_path)
+			download_mime: nul_terminated_text(download_mime)
+			download_state: nul_terminated_text(download_state)
+			download_bytes: download_bytes
+			download_total: download_total
 		}
 	} $else {
 		return WebSurfaceProbe{}
