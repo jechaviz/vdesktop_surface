@@ -12,8 +12,8 @@ $if windows {
 	fn C.vdesktop_surface_web_eval_action(handle voidptr, action_id &u8, script &u8) int
 	fn C.vdesktop_surface_web_probe(handle voidptr, load_count &u64, url &u8, url_cap int,
 		title &u8, title_cap int, text &u8, text_cap int, controls &u8, controls_cap int,
-		action_count &u64, action_id &u8, action_id_cap int, action_ok &int,
-		action_message &u8, action_message_cap int) int
+		structure &u8, structure_cap int, action_count &u64, action_id &u8, action_id_cap int,
+		action_ok &int, action_message &u8, action_message_cap int) int
 	fn C.vdesktop_surface_web_destroy(handle voidptr)
 }
 
@@ -25,6 +25,7 @@ pub:
 	title        string
 	visible_text   string
 	controls_text  string
+	structure_text string
 	action_count   u64
 	action_id      string
 	action_ok      bool
@@ -178,14 +179,15 @@ pub fn (host WebSurfaceHost) probe() WebSurfaceProbe {
 		mut title := []u8{len: 1024}
 		mut body := []u8{len: 12001}
 		mut controls := []u8{len: 24001}
+		mut structure := []u8{len: 262145}
 		mut action_count := u64(0)
 		mut action_id := []u8{len: 256}
 		mut action_ok := 0
 		mut action_message := []u8{len: 2048}
 		ready := C.vdesktop_surface_web_probe(host.handle, &load_count, &url[0], url.len,
 			&title[0], title.len, &body[0], body.len, &controls[0], controls.len,
-			&action_count, &action_id[0], action_id.len, &action_ok, &action_message[0],
-			action_message.len) != 0
+			&structure[0], structure.len, &action_count, &action_id[0], action_id.len,
+			&action_ok, &action_message[0], action_message.len) != 0
 		return WebSurfaceProbe{
 			ready: ready
 			load_count: load_count
@@ -193,6 +195,7 @@ pub fn (host WebSurfaceHost) probe() WebSurfaceProbe {
 			title: nul_terminated_text(title)
 			visible_text: nul_terminated_text(body)
 			controls_text: nul_terminated_text(controls)
+			structure_text: nul_terminated_text(structure)
 			action_count: action_count
 			action_id: nul_terminated_text(action_id)
 			action_ok: action_ok != 0
