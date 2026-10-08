@@ -20,6 +20,7 @@ struct VdsWebView2Surface {
     std::string controls_text;
     std::string structure_text;
     uint64_t load_count = 0;
+    uint64_t state_count = 0;
     uint64_t action_count = 0;
     std::string action_id;
     bool action_ok = false;
@@ -99,6 +100,7 @@ static void vds_state_callback(const char *seq, const char *request, void *arg) 
         state->visible_text = values[2];
         state->controls_text = values.size() >= 4 ? values[3] : "";
         state->structure_text = values.size() >= 5 ? values[4] : "";
+        state->state_count++;
         if (values.size() >= 6 && values[5] == "load") {
             state->load_count++;
         }
@@ -191,7 +193,7 @@ static void vds_copy_text(const std::string &value, char *out, int cap) {
 
 extern "C" __declspec(dllexport)
 int vds_webview2_abi_version(void) {
-    return 6;
+    return 7;
 }
 
 extern "C" __declspec(dllexport)
@@ -333,8 +335,23 @@ void *vds_webview2_create(uint64_t parent_handle, int x, int y, int width, int h
         "encodeURIComponent(structureJson),encodeURIComponent(kind||'state'));"
         "}"
         "window.__vds_probe_state=send;"
+        "var pendingProbe=0;"
+        "function schedule(kind){"
+        "if(pendingProbe)clearTimeout(pendingProbe);"
+        "pendingProbe=setTimeout(function(){pendingProbe=0;send(kind||'state');},35);"
+        "}"
+        "var push=history.pushState,replace=history.replaceState;"
+        "history.pushState=function(){var r=push.apply(this,arguments);schedule('route');return r;};"
+        "history.replaceState=function(){var r=replace.apply(this,arguments);schedule('route');return r;};"
+        "window.addEventListener('popstate',function(){schedule('route');});"
+        "window.addEventListener('hashchange',function(){schedule('route');});"
+        "if(window.MutationObserver){"
+        "var observer=new MutationObserver(function(){schedule('state');});"
+        "var startObserver=function(){if(document.documentElement)observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,characterData:true});};"
+        "if(document.documentElement)startObserver();else document.addEventListener('DOMContentLoaded',startObserver,{once:true});"
+        "}"
         "if(document.readyState==='complete'){setTimeout(function(){send('load');},0);}"
-        "else{"
+        "else{
         "if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){send('state');},{once:true});}"
         "window.addEventListener('load',function(){send('load');},{once:true});"
         "}"
@@ -508,7 +525,8 @@ int vds_webview2_set_visible(void *handle, int visible) {
 }
 
 extern "C" __declspec(dllexport)
-int vds_webview2_probe(void *handle, uint64_t *load_count, char *url, int url_cap,
+int vds_webview2_probe(void *handle, uint64_t *load_count, uint64_t *state_count,
+    char *url, int url_cap,
     char *title, int title_cap, char *text, int text_cap, char *controls, int controls_cap,
     char *structure, int structure_cap, uint64_t *action_count, char *action_id,
     int action_id_cap, int *action_ok, char *action_message, int action_message_cap,
@@ -519,6 +537,7 @@ int vds_webview2_probe(void *handle, uint64_t *load_count, char *url, int url_ca
     auto *state = static_cast<VdsWebView2Surface *>(handle);
     if (!state || !state->view) return 0;
     if (load_count) *load_count = state->load_count;
+    if (state_count) *state_count = state->state_count;
     if (action_count) *action_count = state->action_count;
     if (action_ok) *action_ok = state->action_ok ? 1 : 0;
     if (download_count) *download_count = state->download_count;
@@ -535,7 +554,7 @@ int vds_webview2_probe(void *handle, uint64_t *load_count, char *url, int url_ca
     vds_copy_text(state->download_path, download_path, download_path_cap);
     vds_copy_text(state->download_mime, download_mime, download_mime_cap);
     vds_copy_text(state->download_state, download_state, download_state_cap);
-    return state->load_count > 0 || state->action_count > 0 || state->download_count > 0 ? 1 : 0;
+    return state->state_count > 0 || state->action_count > 0 || state->download_count > 0 ? 1 : 0;
 }
 
 extern "C" __declspec(dllexport)
