@@ -13,8 +13,8 @@ typedef int (__cdecl *vds_eval_action_fn)(void *, const char *, const char *);
 typedef int (__cdecl *vds_set_cookie_fn)(void *, const char *, const char *, const char *,
     const char *, int, int, const char *, int64_t);
 typedef void (__cdecl *vds_destroy_fn)(void *);
-typedef int (__cdecl *vds_probe_fn)(void *, uint64_t *, char *, int, char *, int, char *, int,
-    char *, int, char *, int, uint64_t *, char *, int, int *, char *, int,
+typedef int (__cdecl *vds_probe_fn)(void *, uint64_t *, uint64_t *, char *, int, char *, int,
+    char *, int, char *, int, char *, int, uint64_t *, char *, int, int *, char *, int,
     uint64_t *, char *, int, char *, int, char *, int, char *, int, int64_t *, int64_t *);
 typedef const char *(__cdecl *vds_error_fn)(void *);
 
@@ -53,7 +53,7 @@ static int vds_load_from(const char *path) {
     vds_destroy_fn destroy_fn = (vds_destroy_fn)GetProcAddress(module, "vds_webview2_destroy");
     vds_probe_fn probe_fn = (vds_probe_fn)GetProcAddress(module, "vds_webview2_probe");
     vds_error_fn error_fn = (vds_error_fn)GetProcAddress(module, "vds_webview2_last_error");
-    if (!abi_fn || abi_fn() < 6 || !create_fn || !navigate_fn || !bounds_fn || !visible_fn
+    if (!abi_fn || abi_fn() < 7 || !create_fn || !navigate_fn || !bounds_fn || !visible_fn
         || !eval_action_fn || !destroy_fn || !probe_fn || !error_fn) {
         FreeLibrary(module);
         return 0;
@@ -140,8 +140,9 @@ int vdesktop_surface_web_set_cookie(void *handle, const char *name, const char *
         same_site, expires_unix);
 }
 
-int vdesktop_surface_web_probe(void *handle, uint64_t *load_count, char *url, int url_cap,
-    char *title, int title_cap, char *text, int text_cap, char *controls, int controls_cap,
+int vdesktop_surface_web_probe(void *handle, uint64_t *load_count, uint64_t *state_count,
+    char *url, int url_cap, char *title, int title_cap, char *text, int text_cap,
+    char *controls, int controls_cap,
     char *structure, int structure_cap, uint64_t *action_count, char *action_id,
     int action_id_cap, int *action_ok, char *action_message, int action_message_cap,
     uint64_t *download_count, char *download_url, int download_url_cap,
@@ -149,8 +150,8 @@ int vdesktop_surface_web_probe(void *handle, uint64_t *load_count, char *url, in
     char *download_state, int download_state_cap, int64_t *download_bytes,
     int64_t *download_total) {
     if (!handle || !vds_ensure_loaded()) return 0;
-    return g_vds_probe(handle, load_count, url, url_cap, title, title_cap, text, text_cap,
-        controls, controls_cap, structure, structure_cap, action_count, action_id,
+    return g_vds_probe(handle, load_count, state_count, url, url_cap, title, title_cap,
+        text, text_cap, controls, controls_cap, structure, structure_cap, action_count, action_id,
         action_id_cap, action_ok, action_message, action_message_cap, download_count,
         download_url, download_url_cap, download_path, download_path_cap, download_mime,
         download_mime_cap, download_state, download_state_cap, download_bytes, download_total);
