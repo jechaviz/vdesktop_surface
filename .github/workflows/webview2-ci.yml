@@ -5,10 +5,22 @@ on:
     branches: [main]
     paths:
       - 'compat/webview2/**'
+      - 'native_win32.c'
+      - 'native_window.v'
+      - 'surface.v'
+      - 'surface_test.v'
+      - 'display_list.v'
+      - 'transport.v'
       - '.github/workflows/webview2-ci.yml'
   pull_request:
     paths:
       - 'compat/webview2/**'
+      - 'native_win32.c'
+      - 'native_window.v'
+      - 'surface.v'
+      - 'surface_test.v'
+      - 'display_list.v'
+      - 'transport.v'
       - '.github/workflows/webview2-ci.yml'
   workflow_dispatch:
 
@@ -20,6 +32,12 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Compile native Win32 surface
+        shell: cmd
+        run: |
+          call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          cl /nologo /W4 /c native_win32.c /Fo:native_win32.obj
 
       - name: Configure pinned backend
         shell: pwsh
