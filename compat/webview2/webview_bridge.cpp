@@ -113,6 +113,17 @@ static void vds_action_callback(const char *seq, const char *request, void *arg)
     }
 }
 
+static std::wstring vds_widen(const char *value) {
+    if (!value || !value[0]) return std::wstring();
+    const int needed = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value, -1, nullptr, 0);
+    if (needed <= 0) return std::wstring();
+    std::wstring out(static_cast<size_t>(needed - 1), L'\0');
+    if (needed > 1) {
+        MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value, -1, &out[0], needed);
+    }
+    return out;
+}
+
 static void vds_copy_text(const std::string &value, char *out, int cap) {
     if (!out || cap <= 0) return;
     size_t count = value.size();
@@ -123,7 +134,7 @@ static void vds_copy_text(const std::string &value, char *out, int cap) {
 
 extern "C" __declspec(dllexport)
 int vds_webview2_abi_version(void) {
-    return 3;
+    return 4;
 }
 
 extern "C" __declspec(dllexport)
@@ -270,6 +281,91 @@ static std::string vds_js_string(const char *value) {
         }
     }
     return out;
+}
+
+extern "C" __declspec(dllexport)
+int vds_webview2_set_cookie(void *handle, const char *name, const char *value,
+    const char *domain, const char *path, int secure, int http_only,
+    const char *same_site, int64_t expires_unix) {
+    auto *state = static_cast<VdsWebView2Surface *>(handle);
+    if (!state || !state->view || !name || !name[0] || !domain || !domain[0]) return 0;
+
+    auto *controller = static_cast<ICoreWebView2Controller *>(
+        webview_get_native_handle(state->view, WEBVIEW_NATIVE_HANDLE_KIND_BROWSER_CONTROLLER));
+    if (!controller) {
+        vds_set_error(state, "WebView2 browser controller is unavailable");
+        return 0;
+    }
+
+    ICoreWebView2 *core = nullptr;
+    HRESULT hr = controller->get_CoreWebView2(&core);
+    if (FAILED(hr) || !core) {
+        vds_set_error(state, "failed to acquire CoreWebView2 for cookie sync");
+        return 0;
+    }
+
+    ICoreWebView2_2 *core2 = nullptr;
+    hr = core->QueryInterface(IID_PPV_ARGS(&core2));
+    core->Release();
+    if (FAILED(hr) || !core2) {
+        vds_set_error(state, "WebView2 cookie manager interface is unavailable");
+        return 0;
+    }
+
+    ICoreWebView2CookieManager *manager = nullptr;
+    hr = core2->get_CookieManager(&manager);
+    core2->Release();
+    if (FAILED(hr) || !manager) {
+        vds_set_error(state, "failed to acquire WebView2 cookie manager");
+        return 0;
+    }
+
+    const std::wstring wname = vds_widen(name);
+    const std::wstring wvalue = vds_widen(value ? value : "");
+    const std::wstring wdomain = vds_widen(domain);
+    const std::wstring wpath = vds_widen(path && path[0] ? path : "/");
+    if (wname.empty() || wdomain.empty()) {
+        manager->Release();
+        vds_set_error(state, "invalid UTF-8 cookie name or domain");
+        return 0;
+    }
+
+    ICoreWebView2Cookie *cookie = nullptr;
+    hr = manager->CreateCookie(wname.c_str(), wvalue.c_str(), wdomain.c_str(),
+        wpath.empty() ? L"/" : wpath.c_str(), &cookie);
+    if (FAILED(hr) || !cookie) {
+        manager->Release();
+        vds_set_error(state, "WebView2 CreateCookie failed");
+        return 0;
+    }
+
+    cookie->put_IsSecure(secure ? TRUE : FALSE);
+    cookie->put_IsHttpOnly(http_only ? TRUE : FALSE);
+    if (expires_unix >= 0) {
+        cookie->put_Expires(static_cast<double>(expires_unix));
+    } else {
+        cookie->put_Expires(-1.0);
+    }
+
+    std::string site = same_site ? same_site : "";
+    for (char &ch : site) ch = static_cast<char>(tolower(static_cast<unsigned char>(ch)));
+    if (site == "none") {
+        cookie->put_SameSite(COREWEBVIEW2_COOKIE_SAME_SITE_KIND_NONE);
+    } else if (site == "strict") {
+        cookie->put_SameSite(COREWEBVIEW2_COOKIE_SAME_SITE_KIND_STRICT);
+    } else if (site == "lax") {
+        cookie->put_SameSite(COREWEBVIEW2_COOKIE_SAME_SITE_KIND_LAX);
+    }
+
+    hr = manager->AddOrUpdateCookie(cookie);
+    cookie->Release();
+    manager->Release();
+    if (FAILED(hr)) {
+        vds_set_error(state, "WebView2 AddOrUpdateCookie failed");
+        return 0;
+    }
+    state->last_error.clear();
+    return 1;
 }
 
 extern "C" __declspec(dllexport)
