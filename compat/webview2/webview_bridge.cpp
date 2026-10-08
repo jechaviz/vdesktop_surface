@@ -187,7 +187,7 @@ void *vds_webview2_create(uint64_t parent_handle, int x, int y, int width, int h
         "return [id,role,label,name,value,selector,href,disabled,checked].map(clean).join('\\t');"
         "}).join('\\n');"
         "function clip(v,n){v=clean(v);return v.length>n?v.slice(0,n):v;}"
-        "var desc=document.querySelector('meta[name=description],meta[property=\\"og:description\\"]');"
+        "var desc=document.querySelector(\"meta[name=description],meta[property='og:description']\");"
         "var canonical=document.querySelector('link[rel~=canonical]');"
         "var structure={"
         "description:clip(desc&&desc.content||'',1000),"
