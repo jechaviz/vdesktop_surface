@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <cstring>
+#include <cctype>
 
 #include "webview/webview.h"
 
@@ -117,11 +118,12 @@ static std::wstring vds_widen(const char *value) {
     if (!value || !value[0]) return std::wstring();
     const int needed = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value, -1, nullptr, 0);
     if (needed <= 0) return std::wstring();
-    std::wstring out(static_cast<size_t>(needed - 1), L'\0');
-    if (needed > 1) {
-        MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value, -1, &out[0], needed);
+    std::vector<wchar_t> buffer(static_cast<size_t>(needed), L'\0');
+    if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, value, -1,
+        buffer.data(), needed) <= 0) {
+        return std::wstring();
     }
-    return out;
+    return std::wstring(buffer.data());
 }
 
 static void vds_copy_text(const std::string &value, char *out, int cap) {
