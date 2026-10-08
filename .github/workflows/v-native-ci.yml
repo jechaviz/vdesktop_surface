@@ -1,0 +1,32 @@
+name: V-native module CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: vlang/setup-v@v1.7
+        with:
+          check-latest: true
+      - name: Install public native dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.vmodules"
+          for name in vdirty_regions vwin32; do
+            git clone --depth 1 "https://github.com/jechaviz/$name.git" "$HOME/.vmodules/$name"
+          done
+      - name: Test V module
+        run: v test .
