@@ -10,6 +10,8 @@ $if windows {
 	fn C.vdesktop_surface_web_set_bounds(handle voidptr, x int, y int, w int, h int) int
 	fn C.vdesktop_surface_web_set_visible(handle voidptr, visible int) int
 	fn C.vdesktop_surface_web_eval_action(handle voidptr, action_id &u8, script &u8) int
+	fn C.vdesktop_surface_web_set_cookie(handle voidptr, name &u8, value &u8, domain &u8,
+		path &u8, secure int, http_only int, same_site &u8, expires_unix i64) int
 	fn C.vdesktop_surface_web_probe(handle voidptr, load_count &u64, url &u8, url_cap int,
 		title &u8, title_cap int, text &u8, text_cap int, controls &u8, controls_cap int,
 		structure &u8, structure_cap int, action_count &u64, action_id &u8, action_id_cap int,
@@ -149,6 +151,28 @@ fn (host WebSurfaceHost) require_attached(id string) ! {
 	}
 	if host.state.id != id {
 		return error('embedded web surface id mismatch')
+	}
+}
+
+pub fn (host WebSurfaceHost) set_cookie(cookie WebSurfaceCookie) ! {
+	host.require_attached(host.state.id)!
+	if !cookie.valid() {
+		return error('invalid embedded web cookie')
+	}
+	$if windows {
+		if C.vdesktop_surface_web_set_cookie(host.handle, cookie.name.str, cookie.value.str,
+			cookie.domain.str, cookie.path.str, if cookie.secure { 1 } else { 0 },
+			if cookie.http_only { 1 } else { 0 }, cookie.same_site.str, cookie.expires_unix) == 0 {
+			return error('embedded web cookie sync failed')
+		}
+	} $else {
+		return error('embedded web surface backend is available on Windows only')
+	}
+}
+
+pub fn (host WebSurfaceHost) set_cookies(cookies []WebSurfaceCookie) ! {
+	for cookie in cookies {
+		host.set_cookie(cookie)!
 	}
 }
 
