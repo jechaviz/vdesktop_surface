@@ -11,7 +11,7 @@ $if windows {
 	fn C.vdesktop_surface_open(title &u8, width int, height int, flags int, payload &u8) voidptr
 	fn C.vdesktop_surface_alive(handle voidptr) int
 	fn C.vdesktop_surface_poll(handle voidptr, kind &int, x &int, y &int, width &int,
-		height &int, key &int, codepoint &u32) int
+		height &int, key &int, modifiers &int, codepoint &u32) int
 	fn C.vdesktop_surface_set_payload(handle voidptr, payload &u8)
 	fn C.vdesktop_surface_present(handle voidptr)
 	fn C.vdesktop_surface_destroy(handle voidptr)
@@ -36,7 +36,24 @@ pub:
 	width int
 	height int
 	key int
+	modifiers int
 	codepoint u32
+}
+
+pub fn (event SurfaceEvent) ctrl() bool {
+	return event.modifiers & 1 != 0
+}
+
+pub fn (event SurfaceEvent) shift() bool {
+	return event.modifiers & 2 != 0
+}
+
+pub fn (event SurfaceEvent) alt() bool {
+	return event.modifiers & 4 != 0
+}
+
+pub fn (event SurfaceEvent) win() bool {
+	return event.modifiers & 8 != 0
 }
 
 pub struct NativeWindow {
@@ -88,9 +105,10 @@ pub fn (mut window NativeWindow) poll() []SurfaceEvent {
 			mut width := 0
 			mut height := 0
 			mut key := 0
+			mut modifiers := 0
 			mut codepoint := u32(0)
 			if C.vdesktop_surface_poll(window.handle, &kind, &x, &y, &width, &height, &key,
-				&codepoint) == 0 {
+				&modifiers, &codepoint) == 0 {
 				break
 			}
 			event_kind := event_kind_from_native(kind)
@@ -105,6 +123,7 @@ pub fn (mut window NativeWindow) poll() []SurfaceEvent {
 				width: width
 				height: height
 				key: key
+				modifiers: modifiers
 				codepoint: codepoint
 			}
 		}
