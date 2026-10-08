@@ -12,8 +12,9 @@ $if windows {
 	fn C.vdesktop_surface_web_eval_action(handle voidptr, action_id &u8, script &u8) int
 	fn C.vdesktop_surface_web_set_cookie(handle voidptr, name &u8, value &u8, domain &u8,
 		path &u8, secure int, http_only int, same_site &u8, expires_unix i64) int
-	fn C.vdesktop_surface_web_probe(handle voidptr, load_count &u64, url &u8, url_cap int,
-		title &u8, title_cap int, text &u8, text_cap int, controls &u8, controls_cap int,
+	fn C.vdesktop_surface_web_probe(handle voidptr, load_count &u64, state_count &u64,
+		url &u8, url_cap int, title &u8, title_cap int, text &u8, text_cap int,
+		controls &u8, controls_cap int,
 		structure &u8, structure_cap int, action_count &u64, action_id &u8, action_id_cap int,
 		action_ok &int, action_message &u8, action_message_cap int, download_count &u64,
 		download_url &u8, download_url_cap int, download_path &u8, download_path_cap int,
@@ -26,6 +27,7 @@ pub struct WebSurfaceProbe {
 pub:
 	ready        bool
 	load_count   u64
+	state_count  u64
 	url          string
 	title        string
 	visible_text   string
@@ -209,6 +211,7 @@ pub fn (host WebSurfaceHost) probe() WebSurfaceProbe {
 	}
 	$if windows {
 		mut load_count := u64(0)
+		mut state_count := u64(0)
 		mut url := []u8{len: 4096}
 		mut title := []u8{len: 1024}
 		mut body := []u8{len: 12001}
@@ -225,8 +228,9 @@ pub fn (host WebSurfaceHost) probe() WebSurfaceProbe {
 		mut download_state := []u8{len: 64}
 		mut download_bytes := i64(0)
 		mut download_total := i64(-1)
-		ready := C.vdesktop_surface_web_probe(host.handle, &load_count, &url[0], url.len,
-			&title[0], title.len, &body[0], body.len, &controls[0], controls.len,
+		ready := C.vdesktop_surface_web_probe(host.handle, &load_count, &state_count,
+			&url[0], url.len, &title[0], title.len, &body[0], body.len,
+			&controls[0], controls.len,
 			&structure[0], structure.len, &action_count, &action_id[0], action_id.len,
 			&action_ok, &action_message[0], action_message.len, &download_count,
 			&download_url[0], download_url.len, &download_path[0], download_path.len,
@@ -235,6 +239,7 @@ pub fn (host WebSurfaceHost) probe() WebSurfaceProbe {
 		return WebSurfaceProbe{
 			ready: ready
 			load_count: load_count
+			state_count: state_count
 			url: nul_terminated_text(url)
 			title: nul_terminated_text(title)
 			visible_text: nul_terminated_text(body)
