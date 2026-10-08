@@ -22,6 +22,6 @@ $env:VDESKTOP_WEBVIEW2_DLL = "<absolute-path>\vdesktop_webview2.dll"
 The WebView2 runtime must be present on the target Windows machine. No Python or
 Node runtime is introduced into the application.
 
-## ABI v5 probe
+## ABI v6 probe
 
-The bridge ABI is version 5. The state probe returns URL, title, bounded visible text, actionable-control text, and a bounded opaque structure payload. `load_count` now advances only for a real document load; action-triggered state refreshes update the probe payload without masquerading as navigation. The structure field is intentionally transport-only: consumers such as Hebrowser parse it into their own neutral browser contracts. Action receipts remain asynchronous and are returned through the same probe surface.
+The bridge ABI is version 6. The state probe returns URL, title, bounded visible text, actionable-control text, a bounded opaque structure payload, asynchronous action receipts, and the latest WebView2 download lifecycle event (URL, result path, MIME type, state, bytes received, and expected total). `load_count` advances only for a real document load; action-triggered refreshes and download progress do not masquerade as navigation. Consumers such as Hebrowser project these transport fields into neutral browser contracts.
