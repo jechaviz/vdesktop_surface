@@ -18,6 +18,7 @@
 #define VDS_EVENT_POINTER_MOVE 4
 #define VDS_EVENT_KEY_DOWN 5
 #define VDS_EVENT_TEXT 6
+#define VDS_EVENT_WHEEL 7
 #define VDS_MOD_CTRL 1
 #define VDS_MOD_SHIFT 2
 #define VDS_MOD_ALT 4
@@ -32,6 +33,7 @@ typedef struct VdsEvent {
     int height;
     int key;
     int modifiers;
+    int delta;
     uint32_t codepoint;
 } VdsEvent;
 
@@ -393,6 +395,21 @@ static LRESULT CALLBACK vds_wndproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
             vds_push_event(state, event);
         }
         return 0;
+    case WM_MOUSEWHEEL:
+        if (state) {
+            POINT point;
+            point.x = GET_X_LPARAM(lparam);
+            point.y = GET_Y_LPARAM(lparam);
+            ScreenToClient(hwnd, &point);
+            VdsEvent event = {0};
+            event.kind = VDS_EVENT_WHEEL;
+            event.x = point.x;
+            event.y = point.y;
+            event.delta = GET_WHEEL_DELTA_WPARAM(wparam);
+            event.modifiers = vds_modifiers();
+            vds_push_event(state, event);
+        }
+        return 0;
     case WM_KEYDOWN:
         if (state) {
             VdsEvent event = {0};
@@ -483,7 +500,7 @@ int vdesktop_surface_alive(void *handle) {
 }
 
 int vdesktop_surface_poll(void *handle, int *kind, int *x, int *y, int *width,
-    int *height, int *key, int *modifiers, uint32_t *codepoint) {
+    int *height, int *key, int *modifiers, int *delta, uint32_t *codepoint) {
     VdsWindow *state = (VdsWindow *)handle;
     if (!state) return 0;
 
@@ -506,6 +523,7 @@ int vdesktop_surface_poll(void *handle, int *kind, int *x, int *y, int *width,
     if (height) *height = event.height;
     if (key) *key = event.key;
     if (modifiers) *modifiers = event.modifiers;
+    if (delta) *delta = event.delta;
     if (codepoint) *codepoint = event.codepoint;
     return 1;
 }
