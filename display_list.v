@@ -25,6 +25,8 @@ pub:
 	value u32
 	stroke_width int = 1
 	radius int
+	font_size_px int
+	font_weight int
 }
 
 pub struct DisplayList {
