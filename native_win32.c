@@ -42,6 +42,10 @@ typedef struct VdsWindow {
     char *payload;
     int alive;
     HFONT font;
+    HFONT styled_fonts[12];
+    int styled_sizes[12];
+    int styled_weights[12];
+    int styled_count;
     VdsEvent queue[VDS_QUEUE_CAP];
     int queue_head;
     int queue_tail;
@@ -141,6 +145,28 @@ static HFONT vds_font(VdsWindow *state) {
     return state->font;
 }
 
+static HFONT vds_font_styled(VdsWindow *state, int size_px, int weight) {
+    if (!state || size_px <= 0) return vds_font(state);
+    if (size_px < 8) size_px = 8;
+    if (size_px > 96) size_px = 96;
+    if (weight < 100) weight = 400;
+    if (weight > 900) weight = 900;
+    for (int i = 0; i < state->styled_count; i++) {
+        if (state->styled_sizes[i] == size_px && state->styled_weights[i] == weight)
+            return state->styled_fonts[i];
+    }
+    if (state->styled_count >= 12) return vds_font(state);
+    HFONT font = CreateFontW(-size_px, 0, 0, 0, weight, FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_NATURAL_QUALITY, DEFAULT_PITCH, L"Segoe UI");
+    if (!font) return vds_font(state);
+    int index = state->styled_count++;
+    state->styled_fonts[index] = font;
+    state->styled_sizes[index] = size_px;
+    state->styled_weights[index] = weight;
+    return font;
+}
+
 static void vds_fill(HDC dc, int x, int y, int w, int h, uint32_t argb) {
     RECT r = {x, y, x + w, y + h};
     HBRUSH brush = CreateSolidBrush(vds_color(argb));
@@ -178,13 +204,13 @@ static void vds_line(HDC dc, int x1, int y1, int x2, int y2, int width, uint32_t
 }
 
 static void vds_text(VdsWindow *state, HDC dc, int x, int y, int w, int h,
-    uint32_t argb, const char *encoded) {
+    int size_px, int weight, uint32_t argb, const char *encoded) {
     char utf8[3072];
     wchar_t wide[3072];
     vds_unescape(encoded, utf8, sizeof(utf8));
     vds_utf8_to_wide(utf8, wide, (int)(sizeof(wide) / sizeof(wide[0])));
     RECT r = {x, y, x + w, y + h};
-    HGDIOBJ old_font = SelectObject(dc, vds_font(state));
+    HGDIOBJ old_font = SelectObject(dc, vds_font_styled(state, size_px, weight));
     SetBkMode(dc, TRANSPARENT);
     SetTextColor(dc, vds_color(argb));
     DrawTextW(dc, wide, -1, &r, DT_LEFT | DT_TOP | DT_WORDBREAK | DT_END_ELLIPSIS);
@@ -307,7 +333,13 @@ static void vds_draw_payload(VdsWindow *state, HDC dc, RECT client) {
                 char encoded[3072] = {0};
                 if (sscanf(line, "T|%d|%d|%d|%d|%u|%3071[^\n]",
                     &x, &y, &w, &h, &color, encoded) == 6)
-                    vds_text(state, dc, x, y, w, h, color, encoded);
+                    vds_text(state, dc, x, y, w, h, 0, 0, color, encoded);
+            } else if (line[0] == 'F') {
+                char encoded[3072] = {0};
+                int size_px = 0, weight = 0;
+                if (sscanf(line, "F|%d|%d|%d|%d|%d|%d|%u|%3071[^\\n]",
+                    &x, &y, &w, &h, &size_px, &weight, &color, encoded) == 8)
+                    vds_text(state, dc, x, y, w, h, size_px, weight, color, encoded);
             } else if (line[0] == 'I') {
                 char encoded[3072] = {0};
                 if (sscanf(line, "I|%d|%d|%d|%d|%3071[^\n]",
@@ -551,6 +583,9 @@ void vdesktop_surface_destroy(void *handle) {
     if (!state) return;
     if (state->hwnd && IsWindow(state->hwnd)) DestroyWindow(state->hwnd);
     if (state->font) DeleteObject(state->font);
+    for (int i = 0; i < state->styled_count; i++) {
+        if (state->styled_fonts[i]) DeleteObject(state->styled_fonts[i]);
+    }
     free(state->payload);
     free(state);
 }
