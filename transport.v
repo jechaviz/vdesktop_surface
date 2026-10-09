@@ -20,7 +20,13 @@ pub fn encode_display_list(list DisplayList) string {
 				out.writeln('L|${command.rect.x}|${command.rect.y}|${command.x2}|${command.y2}|${command.stroke_width}|${command.value}')
 			}
 			.text {
-				out.writeln('T|${command.rect.x}|${command.rect.y}|${command.rect.w}|${command.rect.h}|${command.value}|${escape_transport(command.text)}')
+				if command.font_size_px > 0 {
+					size := min_int_transport(96, max_int_transport(8, command.font_size_px))
+					weight := min_int_transport(900, max_int_transport(100, command.font_weight))
+					out.writeln('F|${command.rect.x}|${command.rect.y}|${command.rect.w}|${command.rect.h}|${size}|${weight}|${command.value}|${escape_transport(command.text)}')
+				} else {
+					out.writeln('T|${command.rect.x}|${command.rect.y}|${command.rect.w}|${command.rect.h}|${command.value}|${escape_transport(command.text)}')
+				}
 			}
 			.icon {
 				out.writeln('T|${command.rect.x}|${command.rect.y}|${command.rect.w}|${command.rect.h}|${command.value}|${escape_transport(command.icon)}')
@@ -50,4 +56,12 @@ pub fn escape_transport(value string) string {
 
 fn hex_digit(value u8) u8 {
 	return if value < 10 { `0` + value } else { `A` + value - 10 }
+}
+
+fn max_int_transport(a int, b int) int {
+	return if a > b { a } else { b }
+}
+
+fn min_int_transport(a int, b int) int {
+	return if a < b { a } else { b }
 }
